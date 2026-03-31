@@ -5,6 +5,7 @@ import json
 import logging
 import os
 import ssl
+import urllib.parse
 import threading
 import time
 from datetime import datetime, timezone
@@ -33,6 +34,29 @@ def load_config(config_path: Path) -> dict[str, Any]:
     config["endpoint"] = os.getenv("AWS_IOT_ENDPOINT", config.get("endpoint", "")).strip()
     config["client_id"] = os.getenv("AWS_IOT_CLIENT_ID", config.get("client_id", "gps-monitor"))
     return config
+
+
+def read_json(path: Path, default: dict[str, Any]) -> dict[str, Any]:
+    if not path.exists():
+        return default
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return default
+
+
+def read_recent_messages(limit: int = 20) -> list[dict[str, Any]]:
+    if not MESSAGES_FILE.exists():
+        return []
+
+    lines = MESSAGES_FILE.read_text(encoding="utf-8").splitlines()
+    items: list[dict[str, Any]] = []
+    for line in lines[-limit:]:
+        try:
+            items.append(json.loads(line))
+        except json.JSONDecodeError:
+            continue
+    return items
 
 
 class JsonFileStore:
@@ -166,11 +190,53 @@ class AwsIotMonitor:
 
 
 def start_http_server(host: str, port: int) -> ThreadingHTTPServer:
-    handler = partial(SimpleHTTPRequestHandler, directory=str(ROOT))
+    class MonitorRequestHandler(SimpleHTTPRequestHandler):
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            super().__init__(*args, directory=str(ROOT), **kwargs)
+
+        def end_headers(self) -> None:
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Access-Control-Allow-Methods", "GET, OPTIONS")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type")
+            super().end_headers()
+
+        def do_OPTIONS(self) -> None:
+            self.send_response(204)
+            self.end_headers()
+
+        def do_GET(self) -> None:
+            parsed = urllib.parse.urlparse(self.path)
+            if parsed.path == "/api/live":
+                payload = {
+                    "status": read_json(
+                        STATUS_FILE,
+                        {
+                            "timestamp": utc_now(),
+                            "connected": False,
+                            "endpoint": "",
+                            "client_id": "",
+                            "publish_topic": "",
+                            "subscribe_topic": "",
+                        },
+                    ),
+                    "latest": read_json(LATEST_FILE, {}),
+                    "messages": read_recent_messages(limit=20),
+                }
+                body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json; charset=utf-8")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+                return
+            super().do_GET()
+
+    handler = MonitorRequestHandler
     server = ThreadingHTTPServer((host, port), handler)
     thread = threading.Thread(target=server.serve_forever, name="viewer-server", daemon=True)
     thread.start()
     logging.info("Visualização disponível em http://%s:%s/viewer/", host, port)
+    logging.info("API de dados disponível em http://%s:%s/api/live", host, port)
     return server
 
 
