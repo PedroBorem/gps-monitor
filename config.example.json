@@ -1,0 +1,12 @@
+{
+  "endpoint": "SEU-ENDPOINT-ATS.iot.REGIAO.amazonaws.com",
+  "client_id": "gps-monitor-local",
+  "port": 8883,
+  "publish_topic": "PIVO_ID",
+  "subscribe_topic": "cloudv2-GPS",
+  "publish_payload": "#07$",
+  "publish_interval_seconds": 30,
+  "ca_cert": "KEYS/AmazonRootCA1.pem",
+  "device_cert": "KEYS/device-certificate.pem.crt",
+  "private_key": "KEYS/private.pem.key"
+}

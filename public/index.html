@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GPS Monitor</title>
+  <style>
+    :root {
+      --bg: #f5f7fb;
+      --panel: rgba(255, 255, 255, 0.92);
+      --text: #10213a;
+      --muted: #54657d;
+      --accent: #0f766e;
+      --line: rgba(16, 33, 58, 0.08);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(15, 118, 110, 0.18), transparent 28%),
+        radial-gradient(circle at bottom right, rgba(14, 165, 233, 0.14), transparent 25%),
+        var(--bg);
+    }
+    main {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 32px 20px 56px;
+    }
+    .hero, .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      box-shadow: 0 20px 50px rgba(16, 33, 58, 0.08);
+    }
+    .hero {
+      padding: 28px;
+      margin-bottom: 18px;
+    }
+    .badge {
+      display: inline-block;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(15, 118, 110, 0.1);
+      color: var(--accent);
+      font-weight: 700;
+      font-size: 13px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    h1 {
+      margin: 14px 0 10px;
+      font-size: clamp(32px, 5vw, 48px);
+      line-height: 1.05;
+    }
+    p {
+      line-height: 1.6;
+      color: var(--muted);
+      font-size: 17px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 18px;
+      margin: 18px 0;
+    }
+    .panel {
+      padding: 22px;
+    }
+    h2 {
+      margin: 0 0 12px;
+      font-size: 19px;
+    }
+    code, pre {
+      font-family: Consolas, "Courier New", monospace;
+    }
+    pre {
+      margin: 12px 0 0;
+      padding: 14px;
+      border-radius: 14px;
+      background: #0f172a;
+      color: #e2e8f0;
+      overflow-x: auto;
+      font-size: 14px;
+    }
+    ul {
+      margin: 0;
+      padding-left: 18px;
+      color: var(--muted);
+      line-height: 1.7;
+    }
+    a {
+      color: var(--accent);
+      font-weight: 700;
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="hero">
+      <span class="badge">Deploy Vercel</span>
+      <h1>GPS Monitor preparado para publicação</h1>
+      <p>
+        Esta página pode ser publicada na Vercel sem expor certificados. O processo MQTT da AWS IoT Core
+        continua em <code>monitor.py</code>, rodando localmente ou em uma VM, porque a assinatura contínua
+        de tópico não combina bem com funções serverless.
+      </p>
+    </section>
+
+    <section class="grid">
+      <article class="panel">
+        <h2>O que sobe para a Vercel</h2>
+        <ul>
+          <li>Esta interface estática em <code>public/index.html</code>.</li>
+          <li>Documentação do fluxo de monitoramento.</li>
+          <li>Nenhum certificado ou arquivo sensível.</li>
+        </ul>
+      </article>
+
+      <article class="panel">
+        <h2>O que fica fora da Vercel</h2>
+        <ul>
+          <li><code>KEYS/</code> com os certificados.</li>
+          <li><code>config.json</code> com endpoint local.</li>
+          <li>O processo Python que publica em <code>PIVO_ID</code> e assina <code>cloudv2-GPS</code>.</li>
+        </ul>
+      </article>
+    </section>
+
+    <section class="panel">
+      <h2>Execução local do monitor</h2>
+      <pre>pip install -r requirements.txt
+python monitor.py --serve</pre>
+      <p>
+        Se você quiser, o próximo passo depois do deploy é adaptar essa interface para consumir uma API externa
+        ou armazenamento remoto com os dados produzidos pelo monitor.
+      </p>
+      <p>
+        O repositório também ficou pronto para importar na Vercel pelo GitHub.
+      </p>
+    </section>
+  </main>
+</body>
+</html>

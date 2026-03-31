@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GPS Monitor</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #111827;
+      --panel-2: #1f2937;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --accent: #22c55e;
+      --warn: #f59e0b;
+      --danger: #ef4444;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top, #1e293b 0%, var(--bg) 55%);
+      color: var(--text);
+    }
+    main {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: 32px;
+    }
+    .subtitle {
+      color: var(--muted);
+      margin-bottom: 24px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+    .panel {
+      background: rgba(17, 24, 39, 0.92);
+      border: 1px solid rgba(156, 163, 175, 0.15);
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.25);
+    }
+    .label {
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+    .value {
+      font-size: 28px;
+      font-weight: 700;
+      word-break: break-word;
+    }
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 600;
+    }
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: var(--danger);
+    }
+    .dot.online {
+      background: var(--accent);
+    }
+    .muted {
+      color: var(--muted);
+      font-size: 14px;
+      margin-top: 8px;
+    }
+    pre {
+      margin: 0;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-size: 15px;
+      line-height: 1.5;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+    th, td {
+      text-align: left;
+      padding: 10px 8px;
+      border-bottom: 1px solid rgba(156, 163, 175, 0.12);
+      vertical-align: top;
+    }
+    th {
+      color: var(--muted);
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Monitor AWS IoT Core</h1>
+    <div class="subtitle">Acompanhamento em tempo real do tópico <strong>cloudv2-GPS</strong></div>
+
+    <section class="grid">
+      <article class="panel">
+        <div class="label">Conexão</div>
+        <div class="status">
+          <span id="status-dot" class="dot"></span>
+          <span id="status-text">Aguardando...</span>
+        </div>
+        <div id="status-details" class="muted"></div>
+      </article>
+
+      <article class="panel">
+        <div class="label">Último Payload</div>
+        <div id="last-payload" class="value">Sem dados</div>
+        <div id="last-meta" class="muted"></div>
+      </article>
+    </section>
+
+    <section class="panel" style="margin-bottom: 16px;">
+      <div class="label">Última Mensagem Completa</div>
+      <pre id="latest-json">{}</pre>
+    </section>
+
+    <section class="panel">
+      <div class="label">Histórico Recente</div>
+      <table>
+        <thead>
+          <tr>
+            <th>Horário (UTC)</th>
+            <th>Tópico</th>
+            <th>Payload</th>
+          </tr>
+        </thead>
+        <tbody id="history-body">
+          <tr><td colspan="3">Sem mensagens recebidas.</td></tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+
+  <script>
+    async function fetchJson(url) {
+      const response = await fetch(url + "?t=" + Date.now(), { cache: "no-store" });
+      if (!response.ok) {
+        throw new Error("Falha ao carregar " + url);
+      }
+      return response.json();
+    }
+
+    async function fetchText(url) {
+      const response = await fetch(url + "?t=" + Date.now(), { cache: "no-store" });
+      if (!response.ok) {
+        throw new Error("Falha ao carregar " + url);
+      }
+      return response.text();
+    }
+
+    function renderStatus(status) {
+      const dot = document.getElementById("status-dot");
+      const text = document.getElementById("status-text");
+      const details = document.getElementById("status-details");
+
+      const online = Boolean(status.connected);
+      dot.classList.toggle("online", online);
+      text.textContent = online ? "Conectado" : "Desconectado";
+      details.textContent = [
+        status.endpoint || "Endpoint não configurado",
+        "Client ID: " + (status.client_id || "-"),
+        "Atualizado em: " + (status.timestamp || "-")
+      ].join(" | ");
+    }
+
+    function renderLatest(latest) {
+      document.getElementById("last-payload").textContent = latest.payload || "Sem dados";
+      document.getElementById("last-meta").textContent =
+        "Tópico: " + (latest.topic || "-") + " | Horário: " + (latest.timestamp || "-");
+      document.getElementById("latest-json").textContent = JSON.stringify(latest, null, 2);
+    }
+
+    function renderHistory(lines) {
+      const body = document.getElementById("history-body");
+      const items = lines
+        .trim()
+        .split("\n")
+        .filter(Boolean)
+        .map((line) => {
+          try {
+            return JSON.parse(line);
+          } catch {
+            return null;
+          }
+        })
+        .filter(Boolean)
+        .slice(-20)
+        .reverse();
+
+      if (!items.length) {
+        body.innerHTML = '<tr><td colspan="3">Sem mensagens recebidas.</td></tr>';
+        return;
+      }
+
+      body.innerHTML = items.map((item) => `
+        <tr>
+          <td>${item.timestamp || "-"}</td>
+          <td>${item.topic || "-"}</td>
+          <td>${item.payload || "-"}</td>
+        </tr>
+      `).join("");
+    }
+
+    async function refresh() {
+      try {
+        const [status, latest, lines] = await Promise.all([
+          fetchJson("/data/status.json"),
+          fetchJson("/data/latest.json"),
+          fetchText("/data/messages.jsonl")
+        ]);
+        renderStatus(status);
+        renderLatest(latest);
+        renderHistory(lines);
+      } catch (error) {
+        document.getElementById("status-text").textContent = "Aguardando dados";
+        document.getElementById("status-details").textContent = error.message;
+      }
+    }
+
+    refresh();
+    setInterval(refresh, 2000);
+  </script>
+</body>
+</html>
