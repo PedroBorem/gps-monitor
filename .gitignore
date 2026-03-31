@@ -3,3 +3,5 @@ __pycache__/
 data/
 config.json
 KEYS/
+
+.vercel
